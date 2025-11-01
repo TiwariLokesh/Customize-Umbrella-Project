@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customize Umbrella Project</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="customizer" aria-labelledby="customizer-title">
+        <section class="preview" aria-label="Umbrella preview">
+            <div class="umbrella-frame">
+                <img id="umbrella-image" src="images/Blue umbrella.png" alt="Blue umbrella" class="umbrella" loading="lazy">
+                <div id="logo-dropzone" aria-hidden="true">
+                    <img id="logo-preview" alt="Uploaded logo preview">
+                </div>
+                <div id="image-loader" class="loader" role="status" aria-live="polite" aria-busy="false">
+                    <img src="images/loader_icon.svg" alt="Loading umbrella">
+                </div>
+            </div>
+        </section>
+        <section class="controls" aria-label="Customization controls">
+            <div class="controls-header">
+                <h1 id="customizer-title">Custom Umbrella</h1>
+                <p class="tagline">Pick a color and add your logo for a quick preview.</p>
+            </div>
+            <div class="swatch-group" role="group" aria-label="Umbrella colors">
+                <button type="button" class="color-swatch is-active" data-color="blue" aria-pressed="true" aria-label="Blue umbrella"></button>
+                <button type="button" class="color-swatch" data-color="pink" aria-pressed="false" aria-label="Pink umbrella"></button>
+                <button type="button" class="color-swatch" data-color="yellow" aria-pressed="false" aria-label="Yellow umbrella"></button>
+            </div>
+            <div class="instructions">
+                <h2>Customize your umbrella</h2>
+                <p>Upload a logo in .png or .jpg format (max 5&nbsp;MB) to preview how it will look.</p>
+            </div>
+            <form id="logo-form" class="upload-area" aria-label="Logo upload">
+                <input type="file" id="logo-input" accept="image/png, image/jpeg" aria-label="Upload logo">
+                <label for="logo-input" class="upload-button">
+                    <span class="upload-icon" aria-hidden="true"></span>
+                    Upload Logo
+                </label>
+            </form>
+            <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
