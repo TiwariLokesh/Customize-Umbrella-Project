@@ -54,6 +54,9 @@ const loaderState = {
 	logo: false
 };
 let logoLoadTimeout = null;
+let colorHideTimeout = null;
+let colorLoadStart = 0;
+const MIN_COLOR_SPINNER_MS = 800;
 
 swatchButtons.forEach((button) => {
 	button.addEventListener('click', () => {
@@ -80,12 +83,11 @@ umbrellaImage.addEventListener('load', () => {
 		umbrellaImage.alt = nextAlt;
 		delete umbrellaImage.dataset.nextAlt;
 	}
-	setLoaderState('color', false);
-	umbrellaImage.style.opacity = '1';
+	finalizeColorLoading();
 });
 
 umbrellaImage.addEventListener('error', () => {
-	setLoaderState('color', false);
+	finalizeColorLoading();
 	showFeedback('Unable to load the selected umbrella. Please try again.', 'error');
 });
 
@@ -106,10 +108,26 @@ function applyTheme(theme) {
 }
 
 function switchUmbrella(config) {
-	umbrellaImage.style.opacity = '0';
+	if (colorHideTimeout) {
+		clearTimeout(colorHideTimeout);
+		colorHideTimeout = null;
+	}
+	colorLoadStart = performance.now();
 	setLoaderState('color', true);
 	umbrellaImage.dataset.nextAlt = config.alt;
 	umbrellaImage.src = config.umbrella;
+}
+
+function finalizeColorLoading() {
+	const elapsed = performance.now() - colorLoadStart;
+	const remaining = Math.max(0, MIN_COLOR_SPINNER_MS - elapsed);
+	if (colorHideTimeout) {
+		clearTimeout(colorHideTimeout);
+	}
+	colorHideTimeout = window.setTimeout(() => {
+		setLoaderState('color', false);
+		colorHideTimeout = null;
+	}, remaining);
 }
 
 function setLoaderState(source, isActive) {
