@@ -10,9 +10,11 @@
     <main class="customizer" aria-labelledby="customizer-title">
         <section class="preview" aria-label="Umbrella preview">
             <div class="umbrella-frame">
-                <img id="umbrella-image" src="images/Blue umbrella.png" alt="Blue umbrella" class="umbrella" loading="lazy">
-                <div id="logo-dropzone" aria-hidden="true">
-                    <img id="logo-preview" alt="Uploaded logo preview">
+                <div class="umbrella-rotation">
+                    <img id="umbrella-image" src="images/Blue umbrella.png" alt="Blue umbrella" class="umbrella" loading="lazy" draggable="false">
+                    <div id="logo-dropzone" aria-hidden="true">
+                        <img id="logo-preview" alt="Uploaded logo preview" draggable="false">
+                    </div>
                 </div>
                 <div id="image-loader" class="loader" role="status" aria-live="polite" aria-busy="false">
                     <div class="loader-icon" aria-hidden="true"></div>
@@ -33,6 +35,7 @@
             <div class="instructions">
                 <h2>Customize your umbrella</h2>
                 <p>Upload a logo in .png or .jpg format (max 5&nbsp;MB) to preview how it will look.</p>
+                <p class="hint">Tip: Click and drag the umbrella to spin it and view your design from different angles.</p>
             </div>
             <form id="logo-form" class="upload-area" aria-label="Logo upload">
                 <input type="file" id="logo-input" accept="image/png, image/jpeg" aria-label="Upload logo">

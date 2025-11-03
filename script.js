@@ -40,6 +40,8 @@ const COLOR_CONFIG = {
 
 const swatchButtons = document.querySelectorAll('.color-swatch');
 const umbrellaImage = document.getElementById('umbrella-image');
+const umbrellaFrame = document.querySelector('.umbrella-frame');
+const umbrellaRotation = document.querySelector('.umbrella-rotation');
 const loader = document.getElementById('image-loader');
 const logoInput = document.getElementById('logo-input');
 const logoPreview = document.getElementById('logo-preview');
@@ -50,6 +52,10 @@ const root = document.documentElement;
 
 let currentColor = 'blue';
 const PREVIEW_DELAY_MS = 5000;
+const LOGO_WIDTH_RATIO = 0.32;
+const LOGO_BOTTOM_RATIO = 0.13;
+const LOGO_ASPECT_RATIO = 3.5;
+const LOGO_MAX_WIDTH = 145;
 const loaderState = {
 	color: false,
 	logo: false,
@@ -59,6 +65,10 @@ let logoLoadTimeout = null;
 let colorHideTimeout = null;
 let colorLoadStart = 0;
 const MIN_COLOR_SPINNER_MS = 800;
+let isDragging = false;
+let startAngle = 0;
+let currentRotation = 0;
+let initialRotation = 0;
 
 swatchButtons.forEach((button) => {
 	button.addEventListener('click', () => {
@@ -97,6 +107,17 @@ logoInput.addEventListener('change', handleLogoUpload);
 
 if (downloadBtn) {
 	downloadBtn.addEventListener('click', handleDownloadClick);
+}
+
+if (umbrellaFrame && umbrellaRotation) {
+	umbrellaFrame.addEventListener('pointerdown', handlePointerDown);
+	try {
+		window.addEventListener('pointermove', handlePointerMove, { passive: false });
+	} catch (error) {
+		window.addEventListener('pointermove', handlePointerMove);
+	}
+	window.addEventListener('pointerup', handlePointerUp);
+	window.addEventListener('pointercancel', handlePointerUp);
 }
 
 function updateActiveSwatch(color) {
@@ -246,13 +267,13 @@ function handleDownloadClick() {
 		return;
 	}
 
-	const umbrellaRect = umbrellaImage.getBoundingClientRect();
-	const logoRect = logoPreview.getAttribute('src') ? logoPreview.getBoundingClientRect() : null;
+	const umbrellaRect = umbrellaFrame.getBoundingClientRect();
+	const hasLogo = Boolean(logoPreview.getAttribute('src'));
 
 	setLoaderState('download', true);
 	showFeedback('Preparing download...', null);
 
-	generatePreviewBlob(umbrellaRect, logoRect)
+	generatePreviewBlob(umbrellaRect, hasLogo)
 		.then((blob) => {
 			if (!blob) {
 				throw new Error('No image data generated');
@@ -274,7 +295,7 @@ function handleDownloadClick() {
 		});
 }
 
-function generatePreviewBlob(umbrellaRect, logoRect) {
+function generatePreviewBlob(umbrellaRect, hasLogo) {
 	return new Promise((resolve, reject) => {
 		const canvasWidth = umbrellaImage.naturalWidth || Math.round(umbrellaRect.width);
 		const canvasHeight = umbrellaImage.naturalHeight || Math.round(umbrellaRect.height);
@@ -292,24 +313,39 @@ function generatePreviewBlob(umbrellaRect, logoRect) {
 			return;
 		}
 
-		ctx.drawImage(umbrellaImage, 0, 0, canvasWidth, canvasHeight);
+		ctx.save();
+		ctx.translate(canvasWidth / 2, canvasHeight / 2);
+		ctx.rotate((currentRotation * Math.PI) / 180);
+		ctx.drawImage(umbrellaImage, -canvasWidth / 2, -canvasHeight / 2, canvasWidth, canvasHeight);
+		ctx.restore();
 
 		const logoSrc = logoPreview.getAttribute('src');
-		if (!logoSrc || !logoRect) {
+		if (!logoSrc || !hasLogo) {
 			canvas.toBlob(resolve, 'image/png');
 			return;
 		}
 
-		const scaleX = canvasWidth / umbrellaRect.width;
-		const scaleY = canvasHeight / umbrellaRect.height;
+		const frameWidth = umbrellaRect.width;
+		const widthRatio = Math.min(LOGO_WIDTH_RATIO, LOGO_MAX_WIDTH / frameWidth);
+		const dropzoneWidth = widthRatio * canvasWidth;
+		const dropzoneHeight = dropzoneWidth / LOGO_ASPECT_RATIO;
+		const dropzoneX = (canvasWidth - dropzoneWidth) / 2;
+		const dropzoneY = canvasHeight - dropzoneHeight - LOGO_BOTTOM_RATIO * canvasHeight;
+
 		const logoImage = new Image();
 		logoImage.crossOrigin = 'anonymous';
 		logoImage.onload = () => {
-			const drawX = (logoRect.left - umbrellaRect.left) * scaleX;
-			const drawY = (logoRect.top - umbrellaRect.top) * scaleY;
-			const drawWidth = logoRect.width * scaleX;
-			const drawHeight = logoRect.height * scaleY;
-			ctx.drawImage(logoImage, drawX, drawY, drawWidth, drawHeight);
+			ctx.save();
+			ctx.translate(canvasWidth / 2, canvasHeight / 2);
+			ctx.rotate((currentRotation * Math.PI) / 180);
+			ctx.drawImage(
+				logoImage,
+				dropzoneX - canvasWidth / 2,
+				dropzoneY - canvasHeight / 2,
+				dropzoneWidth,
+				dropzoneHeight
+			);
+			ctx.restore();
 			canvas.toBlob(resolve, 'image/png');
 		};
 		logoImage.onerror = () => reject(new Error('Logo image could not be loaded for export.'));
@@ -321,3 +357,76 @@ function generatePreviewBlob(umbrellaRect, logoRect) {
 applyTheme(COLOR_CONFIG[currentColor].theme);
 logoDropzone.setAttribute('aria-hidden', 'true');
 updateDownloadAvailability();
+setRotation(0);
+
+function handlePointerDown(event) {
+	if (loaderState.color || loaderState.logo) {
+		return;
+	}
+	isDragging = true;
+	umbrellaFrame.classList.add('is-rotating');
+	if (umbrellaFrame.setPointerCapture) {
+		umbrellaFrame.setPointerCapture(event.pointerId);
+	}
+	startAngle = getPointerAngle(event);
+	initialRotation = currentRotation;
+	event.preventDefault();
+}
+
+function handlePointerMove(event) {
+	if (!isDragging) {
+		return;
+	}
+	const angle = getPointerAngle(event);
+	const rotationDelta = normalizeAngle(angle - startAngle);
+	setRotation(initialRotation + rotationDelta);
+	event.preventDefault();
+}
+
+function handlePointerUp(event) {
+	if (!isDragging) {
+		return;
+	}
+	if (umbrellaFrame.releasePointerCapture) {
+		umbrellaFrame.releasePointerCapture(event.pointerId);
+	}
+	umbrellaFrame.classList.remove('is-rotating');
+	isDragging = false;
+}
+
+function setRotation(angle) {
+	currentRotation = wrapAngle(angle);
+	if (umbrellaRotation) {
+		umbrellaRotation.style.transform = `rotate(${currentRotation}deg)`;
+	}
+}
+
+function getPointerAngle(event) {
+	const rect = umbrellaFrame.getBoundingClientRect();
+	const centerX = rect.left + rect.width / 2;
+	const centerY = rect.top + rect.height / 2;
+	const deltaX = event.clientX - centerX;
+	const deltaY = event.clientY - centerY;
+	return (Math.atan2(deltaY, deltaX) * 180) / Math.PI;
+}
+
+function normalizeAngle(angle) {
+	let normalized = angle;
+	while (normalized <= -180) {
+		normalized += 360;
+	}
+	while (normalized > 180) {
+		normalized -= 360;
+	}
+	return normalized;
+}
+
+function wrapAngle(angle) {
+	let wrapped = angle % 360;
+	if (wrapped <= -180) {
+		wrapped += 360;
+	} else if (wrapped > 180) {
+		wrapped -= 360;
+	}
+	return wrapped;
+}
