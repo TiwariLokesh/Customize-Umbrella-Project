@@ -253,6 +253,37 @@ body {
 	object-fit: contain;
 }
 
+.download-button {
+	padding: 0.85rem 1.4rem;
+	border-radius: 12px;
+	border: 2px solid var(--accent);
+	background: transparent;
+	color: var(--accent);
+	font-size: 0.95rem;
+	font-weight: 600;
+	letter-spacing: 0.03em;
+	cursor: pointer;
+	transition: background 150ms ease-in-out, color 150ms ease-in-out, transform 130ms ease-in-out, box-shadow 130ms ease-in-out;
+}
+
+.download-button:hover:not(:disabled) {
+	background: var(--accent);
+	color: #ffffff;
+	transform: translateY(-1px);
+	box-shadow: 0 12px 22px rgba(0, 0, 0, 0.18);
+}
+
+.download-button:active:not(:disabled) {
+	transform: translateY(0);
+	box-shadow: 0 8px 16px rgba(0, 0, 0, 0.16);
+}
+
+.download-button:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+	box-shadow: none;
+}
+
 .feedback {
 	min-height: 1.2rem;
 	margin: 0;

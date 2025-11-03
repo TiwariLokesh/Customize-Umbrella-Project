@@ -45,13 +45,15 @@ const logoInput = document.getElementById('logo-input');
 const logoPreview = document.getElementById('logo-preview');
 const logoDropzone = document.getElementById('logo-dropzone');
 const feedback = document.getElementById('feedback');
+const downloadBtn = document.getElementById('download-btn');
 const root = document.documentElement;
 
 let currentColor = 'blue';
 const PREVIEW_DELAY_MS = 5000;
 const loaderState = {
 	color: false,
-	logo: false
+	logo: false,
+	download: false
 };
 let logoLoadTimeout = null;
 let colorHideTimeout = null;
@@ -93,6 +95,10 @@ umbrellaImage.addEventListener('error', () => {
 
 logoInput.addEventListener('change', handleLogoUpload);
 
+if (downloadBtn) {
+	downloadBtn.addEventListener('click', handleDownloadClick);
+}
+
 function updateActiveSwatch(color) {
 	swatchButtons.forEach((button) => {
 		const isActive = button.dataset.color === color;
@@ -132,16 +138,14 @@ function finalizeColorLoading() {
 
 function setLoaderState(source, isActive) {
 	loaderState[source] = isActive;
-	const isSpinnerActive = loaderState.color || loaderState.logo;
+	const isSpinnerActive = loaderState.color || loaderState.logo || loaderState.download;
 	loader.classList.toggle('is-active', isSpinnerActive);
 	loader.setAttribute('aria-busy', String(isSpinnerActive));
 	umbrellaImage.classList.toggle('is-hidden', isSpinnerActive);
 	umbrellaImage.style.opacity = isSpinnerActive ? '0' : '1';
-	if (isSpinnerActive) {
-		logoDropzone.style.visibility = 'hidden';
-	} else {
-		logoDropzone.style.visibility = '';
-	}
+	const shouldHideOverlay = loaderState.color || loaderState.logo;
+	logoDropzone.style.visibility = shouldHideOverlay ? 'hidden' : '';
+	updateDownloadAvailability();
 }
 
 function handleLogoUpload(event) {
@@ -228,6 +232,92 @@ function showFeedback(message, type) {
 	}
 }
 
+function updateDownloadAvailability() {
+	if (!downloadBtn) {
+		return;
+	}
+	const shouldDisable = loaderState.color || loaderState.logo || loaderState.download;
+	downloadBtn.disabled = shouldDisable;
+}
+
+function handleDownloadClick() {
+	if (loaderState.color || loaderState.logo) {
+		showFeedback('Please wait for the current preview to finish loading.', 'error');
+		return;
+	}
+
+	const umbrellaRect = umbrellaImage.getBoundingClientRect();
+	const logoRect = logoPreview.getAttribute('src') ? logoPreview.getBoundingClientRect() : null;
+
+	setLoaderState('download', true);
+	showFeedback('Preparing download...', null);
+
+	generatePreviewBlob(umbrellaRect, logoRect)
+		.then((blob) => {
+			if (!blob) {
+				throw new Error('No image data generated');
+			}
+			const url = URL.createObjectURL(blob);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = `custom-umbrella-${currentColor}.png`;
+			link.click();
+			URL.revokeObjectURL(url);
+			showFeedback('Preview downloaded!', 'success');
+		})
+		.catch((error) => {
+			console.error(error);
+			showFeedback('Could not create the download. Please try again.', 'error');
+		})
+		.finally(() => {
+			setLoaderState('download', false);
+		});
+}
+
+function generatePreviewBlob(umbrellaRect, logoRect) {
+	return new Promise((resolve, reject) => {
+		const canvasWidth = umbrellaImage.naturalWidth || Math.round(umbrellaRect.width);
+		const canvasHeight = umbrellaImage.naturalHeight || Math.round(umbrellaRect.height);
+		if (!canvasWidth || !canvasHeight) {
+			reject(new Error('Umbrella image is not ready for export.'));
+			return;
+		}
+
+		const canvas = document.createElement('canvas');
+		canvas.width = canvasWidth;
+		canvas.height = canvasHeight;
+		const ctx = canvas.getContext('2d');
+		if (!ctx) {
+			reject(new Error('Canvas context is unavailable.'));
+			return;
+		}
+
+		ctx.drawImage(umbrellaImage, 0, 0, canvasWidth, canvasHeight);
+
+		const logoSrc = logoPreview.getAttribute('src');
+		if (!logoSrc || !logoRect) {
+			canvas.toBlob(resolve, 'image/png');
+			return;
+		}
+
+		const scaleX = canvasWidth / umbrellaRect.width;
+		const scaleY = canvasHeight / umbrellaRect.height;
+		const logoImage = new Image();
+		logoImage.crossOrigin = 'anonymous';
+		logoImage.onload = () => {
+			const drawX = (logoRect.left - umbrellaRect.left) * scaleX;
+			const drawY = (logoRect.top - umbrellaRect.top) * scaleY;
+			const drawWidth = logoRect.width * scaleX;
+			const drawHeight = logoRect.height * scaleY;
+			ctx.drawImage(logoImage, drawX, drawY, drawWidth, drawHeight);
+			canvas.toBlob(resolve, 'image/png');
+		};
+		logoImage.onerror = () => reject(new Error('Logo image could not be loaded for export.'));
+		logoImage.src = logoSrc;
+	});
+}
+
 // Ensure the starting state matches our defaults when the page loads.
 applyTheme(COLOR_CONFIG[currentColor].theme);
 logoDropzone.setAttribute('aria-hidden', 'true');
+updateDownloadAvailability();
